@@ -160,9 +160,6 @@ function openYouTube(){
 async function downloadVideo(){
  const url=document.getElementById("videoUrl").value.trim();
  const msg=document.getElementById("message");
-async function downloadVideo(){
- const url=document.getElementById("videoUrl").value.trim();
- const msg=document.getElementById("message");
 
  if(!url){
   msg.innerText="Please paste a direct MP4 link!";
@@ -179,7 +176,6 @@ async function downloadVideo(){
   if(!["http:","https:"].includes(link.protocol)) throw Error();
 
   msg.innerText="Downloading video...";
-
   const response=await fetch(link.href);
   if(!response.ok) throw Error();
 
@@ -187,7 +183,6 @@ async function downloadVideo(){
   if(!type.includes("video/")) throw Error();
 
   const blob=await response.blob();
-
   const base64=await new Promise((resolve,reject)=>{
    const reader=new FileReader();
    reader.onload=()=>resolve(reader.result.split(",")[1]);
@@ -202,12 +197,21 @@ async function downloadVideo(){
   });
 
   const filename="Video-"+Date.now()+".mp4";
-
   await Filesystem.writeFile({
    path:"VidBear/"+filename,
    data:base64,
    directory:Directory.Documents
   });
+
+  saveHistory(url);
+  msg.innerText="Video saved in VidBear Storage!";
+  showStorage();
+ }catch(e){
+  msg.innerText="Download failed. Website may block access or link is not a direct MP4.";
+  console.error(e);
+ }
+}
+
 async function showStorage(){
  const box=document.getElementById("storageList");
  box.innerHTML="Loading...";
@@ -219,7 +223,6 @@ async function showStorage(){
   });
 
   box.innerHTML="";
-
   if(result.files.length===0){
    box.innerText="No saved videos yet.";
    return;
@@ -235,64 +238,23 @@ async function showStorage(){
    const del=document.createElement("button");
    del.textContent="Delete";
    del.className="danger";
-
    del.onclick=async()=>{
-    await Filesystem.deleteFile({
-     path:"VidBear/"+file.name,
-     directory:Directory.Documents
-    });
-    showStorage();
+    try{
+     await Filesystem.deleteFile({
+      path:"VidBear/"+file.name,
+      directory:Directory.Documents
+     });
+     showStorage();
+    }catch(e){
+     box.innerText="Could not delete this video.";
+    }
    };
 
    item.appendChild(del);
    box.appendChild(item);
   });
-
  }catch(error){
-  box.innerText="Storage is empty.";
- }
-}
-  saveHistory(url);
-  msg.innerText="Video saved in VidBear Storage!";
- }catch(e){
-  msg.innerText="Download failed. Link may block access.";
-  console.error(e);
- }
-}
- if(!url){
-  msg.innerText="Please paste a direct MP4 link!";
-  return;
- }
-
- if(getYouTubeId(url)){
-  msg.innerText="Use YouTube's official download options for this video.";
-  return;
- }
-
- try{
-  const link=new URL(url);
-  if(!["http:","https:"].includes(link.protocol)) throw Error();
-
-  msg.innerText="Checking video...";
-  const response=await fetch(link.href);
-
-  if(!response.ok) throw Error();
-
-  const type=response.headers.get("content-type")||"";
-  if(!type.includes("video/")) throw Error();
-
-  const blob=await response.blob();
-  const blobUrl=URL.createObjectURL(blob);
-  const a=document.createElement("a");
-  a.href=blobUrl;
-  a.download="VidBear-Video.mp4";
-  a.click();
-
-  setTimeout(()=>URL.revokeObjectURL(blobUrl),30000);
-  saveHistory(url);
-  msg.innerText="Download started!";
- }catch(e){
-  msg.innerText="Direct MP4 unavailable or server blocked access.";
+  box.innerText="No saved videos yet.";
  }
 }
 

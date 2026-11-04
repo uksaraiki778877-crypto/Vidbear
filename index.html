@@ -70,15 +70,16 @@ does not extract or download YouTube video files.
 </div>
 
 <div class="card">
-<h3>📂 Download History</h3>
-<div id="history"></div>
-<button class="danger" onclick="clearHistory()">Clear History</button>
+<h3>📁 My VidBear Storage</h3>
+<p class="small">Your saved videos</p>
+<button class="secondary" onclick="showStorage()">Refresh Storage</button>
+<div id="storageList"></div>
 </div>
-</main>
 
 <footer>© 2026 VidBear App</footer>
 
-<script>
+<script type="module">
+import { Filesystem, Directory } from "@capacitor/filesystem";
 let currentYouTubeUrl = "";
 
 function getYouTubeId(url){
@@ -159,7 +160,105 @@ function openYouTube(){
 async function downloadVideo(){
  const url=document.getElementById("videoUrl").value.trim();
  const msg=document.getElementById("message");
+async function downloadVideo(){
+ const url=document.getElementById("videoUrl").value.trim();
+ const msg=document.getElementById("message");
 
+ if(!url){
+  msg.innerText="Please paste a direct MP4 link!";
+  return;
+ }
+
+ if(getYouTubeId(url)){
+  msg.innerText="Use YouTube's official download options.";
+  return;
+ }
+
+ try{
+  const link=new URL(url);
+  if(!["http:","https:"].includes(link.protocol)) throw Error();
+
+  msg.innerText="Downloading video...";
+
+  const response=await fetch(link.href);
+  if(!response.ok) throw Error();
+
+  const type=response.headers.get("content-type")||"";
+  if(!type.includes("video/")) throw Error();
+
+  const blob=await response.blob();
+
+  const base64=await new Promise((resolve,reject)=>{
+   const reader=new FileReader();
+   reader.onload=()=>resolve(reader.result.split(",")[1]);
+   reader.onerror=reject;
+   reader.readAsDataURL(blob);
+  });
+
+  await Filesystem.mkdir({
+   path:"VidBear",
+   directory:Directory.Documents,
+   recursive:true
+  });
+
+  const filename="Video-"+Date.now()+".mp4";
+
+  await Filesystem.writeFile({
+   path:"VidBear/"+filename,
+   data:base64,
+   directory:Directory.Documents
+  });
+async function showStorage(){
+ const box=document.getElementById("storageList");
+ box.innerHTML="Loading...";
+
+ try{
+  const result=await Filesystem.readdir({
+   path:"VidBear",
+   directory:Directory.Documents
+  });
+
+  box.innerHTML="";
+
+  if(result.files.length===0){
+   box.innerText="No saved videos yet.";
+   return;
+  }
+
+  result.files.forEach(file=>{
+   const item=document.createElement("p");
+   item.style.background="#263750";
+   item.style.padding="12px";
+   item.style.borderRadius="8px";
+   item.textContent=file.name+" ";
+
+   const del=document.createElement("button");
+   del.textContent="Delete";
+   del.className="danger";
+
+   del.onclick=async()=>{
+    await Filesystem.deleteFile({
+     path:"VidBear/"+file.name,
+     directory:Directory.Documents
+    });
+    showStorage();
+   };
+
+   item.appendChild(del);
+   box.appendChild(item);
+  });
+
+ }catch(error){
+  box.innerText="Storage is empty.";
+ }
+}
+  saveHistory(url);
+  msg.innerText="Video saved in VidBear Storage!";
+ }catch(e){
+  msg.innerText="Download failed. Link may block access.";
+  console.error(e);
+ }
+}
  if(!url){
   msg.innerText="Please paste a direct MP4 link!";
   return;
@@ -222,10 +321,15 @@ function clearHistory(){
 }
 
 showHistory();
-
+window.showStorage=showStorage;
 if("serviceWorker" in navigator){
  navigator.serviceWorker.register("/sw.js");
 }
+
+window.checkVideo=checkVideo;
+window.openYouTube=openYouTube;
+window.downloadVideo=downloadVideo;
+window.clearHistory=clearHistory;
 </script>
 </body>
 </html>

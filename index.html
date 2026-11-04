@@ -1,0 +1,164 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#101827">
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" href="/icon.svg">
+<title>VidBear</title>
+
+<style>
+*{box-sizing:border-box}
+body{
+ margin:0;background:#101827;color:white;
+ font-family:Arial,sans-serif;
+}
+header{
+ text-align:center;padding:25px;
+ background:#17243a;
+ font-size:30px;font-weight:bold;
+ color:#54b9ff;
+}
+main{padding:25px 18px;max-width:550px;margin:auto}
+h1{text-align:center;margin-top:35px}
+.subtitle{text-align:center;color:#aab8ca}
+.card{
+ background:#1d2b41;padding:22px;
+ border-radius:18px;margin-top:30px;
+}
+input,select{
+ width:100%;padding:16px;
+ border:0;border-radius:10px;
+ margin:12px 0;font-size:15px;
+}
+button{
+ width:100%;padding:16px;
+ background:#249cf0;color:white;
+ border:0;border-radius:10px;
+ font-size:17px;font-weight:bold;
+}
+#message{color:#65d8a0;overflow-wrap:anywhere}
+#history p{
+ background:#263750;padding:12px;
+ border-radius:8px;overflow-wrap:anywhere;
+}
+footer{text-align:center;color:#8192aa;padding:30px}
+</style>
+</head>
+
+<body>
+<header>🐻 VidBear</header>
+
+<main>
+<h1>Download Your Videos</h1>
+<p class="subtitle">Your video download assistant</p>
+
+<div class="card">
+<h3>🔗 Paste Video Link</h3>
+
+<input id="videoUrl" type="url"
+placeholder="Paste direct MP4 link here">
+
+<select id="quality">
+<option value="original">Original Quality</option>
+</select>
+
+<button onclick="downloadVideo()">
+📥 Download Video
+</button>
+
+<p id="message"></p>
+</div>
+
+<div class="card">
+<h3>📂 Download History</h3>
+<div id="history"></div>
+<button onclick="clearHistory()"
+style="background:#d94343">
+Clear History
+</button>
+</div>
+</main>
+
+<footer>© 2026 VidBear App</footer>
+
+<script>
+async function downloadVideo(){
+ const url=document.getElementById("videoUrl").value.trim();
+ const msg=document.getElementById("message");
+
+ if(!url){
+  msg.innerText="Please paste a video link!";
+  return;
+ }
+
+ try{
+  const link=new URL(url);
+
+  if(!["http:","https:"].includes(link.protocol))
+   throw new Error();
+
+  msg.innerText="Checking video...";
+
+  const response=await fetch(link.href);
+
+  if(!response.ok)throw new Error();
+
+  const type=response.headers.get("content-type")||"";
+
+  if(!type.includes("video/"))
+   throw new Error();
+
+  const blob=await response.blob();
+  const blobUrl=URL.createObjectURL(blob);
+
+  const a=document.createElement("a");
+  a.href=blobUrl;
+  a.download="VidBear-Video.mp4";
+  a.click();
+
+  setTimeout(()=>URL.revokeObjectURL(blobUrl),30000);
+
+  saveHistory(url);
+  msg.innerText="Download started!";
+
+ }catch(error){
+  msg.innerText="Direct MP4 link unavailable or server blocked access.";
+ }
+}
+
+function saveHistory(url){
+ let items=JSON.parse(localStorage.getItem("vidbearHistory")||"[]");
+ items.unshift(url);
+ items=items.slice(0,20);
+ localStorage.setItem("vidbearHistory",JSON.stringify(items));
+ showHistory();
+}
+
+function showHistory(){
+ const box=document.getElementById("history");
+ const items=JSON.parse(localStorage.getItem("vidbearHistory")||"[]");
+ box.innerHTML="";
+ items.forEach(url=>{
+  const p=document.createElement("p");
+  p.textContent=url;
+  box.appendChild(p);
+ });
+}
+
+function clearHistory(){
+ localStorage.removeItem("vidbearHistory");
+ showHistory();
+}
+
+showHistory();
+
+if("serviceWorker" in navigator){
+ navigator.serviceWorker.register("/sw.js");
+}
+</script>
+</body>
+</html>
+

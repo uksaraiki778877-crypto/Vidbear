@@ -1,3 +1,4 @@
+
 name: Build VidBear APK
 
 on:
@@ -50,3 +51,4 @@ jobs:
         with:
           name: VidBear-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
+

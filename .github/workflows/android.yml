@@ -25,11 +25,10 @@ jobs:
         with:
           node-version: 22
 
-            - name: Setup Android SDK
+      - name: Setup Android SDK
         uses: android-actions/setup-android@v3
         with:
           accept-android-sdk-licenses: true
-          log-accepted-android-sdk-licenses: false
 
       - name: Install dependencies
         run: npm ci
@@ -51,5 +50,3 @@ jobs:
         with:
           name: VidBear-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
-      - name: Accept Android licenses
-        run: yes | sdkmanager --licenses

@@ -5,7 +5,7 @@ import { Browser } from '@capacitor/browser'
 const NativeDownloader = registerPlugin('NativeDownloader')
 const app = document.querySelector('#app')
 
-const API = 'http://127.0.0.1:3000'
+const API = 'https://vidbear.onrender.com'
 
 app.innerHTML = `
 <style>
@@ -256,22 +256,46 @@ async function convertMP3() {
 
  try {
   const form = new FormData()
-  form.append('video',file)
+  form.append('video', file)
 
-  const response = await fetch(API + '/api/convert-mp3',{
-   method:'POST',
-   body:form
+  const response = await fetch(API + '/api/convert-mp3', {
+   method: 'POST',
+   body: form
   })
 
-  const result = await response.json()
-  if (!response.ok) throw new Error(result.error || 'Conversion failed')
+  if (!response.ok) {
+   const errorText = await response.text()
+   let message = 'Conversion failed'
+   try {
+    message = JSON.parse(errorText).error || message
+   } catch {}
+   throw new Error(message)
+  }
 
-  saveHistory(result.filename,result.filename)
-  show('MP3 converted successfully: ' + result.filename +
-   '. Saved in Music/VidBear on the phone running the backend.')
- } catch(e) {
-  show('MP3 Error: ' + (e.message || String(e)) +
-   '. Check that the backend is running.')
+  const blob = await response.blob()
+  if (!blob.size) throw new Error('Empty MP3 file received')
+
+  show('Saving MP3 to your phone...')
+
+  const dataUrl = await new Promise((resolve, reject) => {
+   const reader = new FileReader()
+   reader.onload = () => resolve(reader.result)
+   reader.onerror = () => reject(new Error('Could not read MP3 file'))
+   reader.readAsDataURL(blob)
+  })
+
+  const base64 = dataUrl.split(',')[1]
+  const fileName = 'VidBear_' + Date.now() + '.mp3'
+
+  const result = await NativeDownloader.saveBase64({
+   data: base64,
+   fileName
+  })
+
+  saveHistory('MP3 Conversion', result.fileName || fileName)
+  show('MP3 saved successfully! Folder: Music/VidBear/')
+ } catch (e) {
+  show('MP3 Error: ' + (e.message || String(e)))
  } finally {
   btn.disabled = false
   btn.textContent = 'Convert to MP3'

@@ -1,10 +1,10 @@
+
 import './style.css'
 import { registerPlugin } from '@capacitor/core'
 import { Browser } from '@capacitor/browser'
 
 const NativeDownloader = registerPlugin('NativeDownloader')
 const app = document.querySelector('#app')
-
 const API = 'https://vidbear.onrender.com'
 
 app.innerHTML = `
@@ -21,6 +21,7 @@ button:disabled{opacity:.5}
 input{width:100%;padding:16px;background:#111722;border:1px solid #3b4558;color:white;border-radius:12px;margin:14px 0}
 .action{width:100%;margin-top:12px}
 .secondary{background:#30394b;color:white}
+.youtube-btn{background:#ff0033;color:white}
 #player{margin-top:14px}
 video,iframe{width:100%;border:0;border-radius:12px;background:#000}
 video{aspect-ratio:16/9}
@@ -40,14 +41,20 @@ footer{text-align:center;color:#8892a3;font-size:12px;padding:20px}
 </header>
 
 <div class="card">
+<h2>🔴 YouTube Search</h2>
+<p>Search videos directly on YouTube.</p>
+<input id="ytSearch" type="search" placeholder="Search YouTube videos...">
+<button class="action youtube-btn" id="ytSearchBtn">▶ Search YouTube</button>
+<button class="action secondary" id="ytOpen">Open YouTube</button>
+</div>
+
+<div class="card">
 <h2>Video Downloader</h2>
 <p>YouTube, Facebook, TikTok and direct video links.</p>
 <input id="url" type="url" placeholder="Paste video link here">
-
 <button class="action" id="preview">▶ Preview Video</button>
 <button class="action" id="open">↗ Open Link</button>
 <button class="action" id="download">⬇ Download Video</button>
-
 <div id="status"></div>
 <div id="player"></div>
 </div>
@@ -114,7 +121,6 @@ function history() {
  } catch {}
 
  $('history').innerHTML = ''
-
  if (!items.length) {
   $('history').textContent = 'No downloads yet.'
   return
@@ -150,6 +156,16 @@ async function openLink() {
  } catch(e) {
   show('Cannot open link: ' + (e.message || e))
  }
+}
+
+function youtubeSearch() {
+ const query = $('ytSearch').value.trim()
+ if (!query) {
+  $('ytSearch').focus()
+  return show('Please enter a YouTube search.')
+ }
+ const url = 'https://www.youtube.com/results?search_query=' + encodeURIComponent(query)
+ Browser.open({url}).catch(e => show('Cannot open YouTube: ' + (e.message || e)))
 }
 
 function preview() {
@@ -217,42 +233,39 @@ function preview() {
  show('This is a webpage link, not a direct video file.')
 }
 
-
 async function download() {
-  const u = validUrl()
-  if (!u) return show('Please enter a valid URL.')
+ const u = validUrl()
+ if (!u) return show('Please enter a valid URL.')
 
-  if (!/\.(mp4|webm|m4v|mov)$/i.test(u.pathname)) {
-    return show('Direct MP4 video link required. Use official platform download options for social media.')
-  }
+ if (platform(u) === 'youtube') {
+  return show('Use YouTube official Download option if available, or download your own videos from YouTube Studio.')
+ }
 
-  const btn = $('download')
-  btn.disabled = true
+ if (!/\.(mp4|webm|m4v|mov)$/i.test(u.pathname)) {
+  return show('Direct MP4 video link required. Use official platform download options for social media.')
+ }
 
-  try {
-    let name = decodeURIComponent(u.pathname.split('/').pop() || '')
-    name = name.replace(/[^a-zA-Z0-9._-]/g, '_')
+ const btn = $('download')
+ btn.disabled = true
 
-    if (!name) {
-      name = 'VidBear_' + Date.now() + '.mp4'
-    }
+ try {
+  let name = decodeURIComponent(u.pathname.split('/').pop() || '')
+  name = name.replace(/[^a-zA-Z0-9._-]/g, '_')
+  if (!name) name = 'VidBear_' + Date.now() + '.mp4'
 
-    const result = await NativeDownloader.download({
-      url: u.href,
-      fileName: name
-    })
+  const result = await NativeDownloader.download({
+   url: u.href,
+   fileName: name
+  })
 
-    saveHistory(u.href, result.fileName || name)
-    show('Download started! Check notification. Folder: Movies/VidBear/')
-
-  } catch (e) {
-    show('Download error: ' + (e.message || String(e)))
-  } finally {
-    btn.disabled = false
-  }
+  saveHistory(u.href, result.fileName || name)
+  show('Download started! Check notification. Folder: Movies/VidBear/')
+ } catch (e) {
+  show('Download error: ' + (e.message || String(e)))
+ } finally {
+  btn.disabled = false
+ }
 }
-
-
 
 async function convertMP3() {
  const file = $('videoFile').files[0]
@@ -311,6 +324,12 @@ async function convertMP3() {
  }
 }
 
+$('ytSearchBtn').onclick = youtubeSearch
+$('ytSearch').addEventListener('keydown', e => {
+ if (e.key === 'Enter') youtubeSearch()
+})
+$('ytOpen').onclick = () => Browser.open({url:'https://www.youtube.com'}).catch(e => show(e.message || e))
+
 $('preview').onclick = preview
 $('open').onclick = openLink
 $('download').onclick = download
@@ -330,3 +349,4 @@ $('clear').onclick = () => {
 }
 
 history()
+

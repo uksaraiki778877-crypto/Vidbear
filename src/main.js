@@ -217,33 +217,42 @@ function preview() {
  show('This is a webpage link, not a direct video file.')
 }
 
+
 async function download() {
- const u = validUrl()
- if (!u) return show('Please enter a valid URL.')
+  const u = validUrl()
+  if (!u) return show('Please enter a valid URL.')
 
- if (platform(u) !== 'other') {
-  return show('Use official platform download options, or download your own media.')
- }
+  if (!/\.(mp4|webm|m4v|mov)$/i.test(u.pathname)) {
+    return show('Direct MP4 video link required. Use official platform download options for social media.')
+  }
 
- if (!/\.(mp4|webm|m4v|mov)$/i.test(u.pathname)) {
-  return show('Direct video file link required.')
- }
+  const btn = $('download')
+  btn.disabled = true
 
- const btn = $('download')
- btn.disabled = true
- try {
-  let name = decodeURIComponent(u.pathname.split('/').pop() || '')
-  name = name.replace(/[^a-zA-Z0-9._-]/g,'_')
-  if (!name) name = 'VidBear_' + Date.now() + '.mp4'
-  const result = await NativeDownloader.download({url:u.href,fileName:name})
-  saveHistory(u.href,result.fileName || name)
-  show('Download started. Check notification. Folder: Movies/VidBear/')
- } catch(e) {
-  show('Download error: ' + (e.message || String(e)))
- } finally {
-  btn.disabled = false
- }
+  try {
+    let name = decodeURIComponent(u.pathname.split('/').pop() || '')
+    name = name.replace(/[^a-zA-Z0-9._-]/g, '_')
+
+    if (!name) {
+      name = 'VidBear_' + Date.now() + '.mp4'
+    }
+
+    const result = await NativeDownloader.download({
+      url: u.href,
+      fileName: name
+    })
+
+    saveHistory(u.href, result.fileName || name)
+    show('Download started! Check notification. Folder: Movies/VidBear/')
+
+  } catch (e) {
+    show('Download error: ' + (e.message || String(e)))
+  } finally {
+    btn.disabled = false
+  }
 }
+
+
 
 async function convertMP3() {
  const file = $('videoFile').files[0]

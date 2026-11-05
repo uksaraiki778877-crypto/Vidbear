@@ -14,11 +14,15 @@ header{display:flex;justify-content:space-between;align-items:center;margin-bott
 .logo{font-size:28px;font-weight:900;color:#62e6a5}
 .logo span{color:white}
 button{border:0;border-radius:12px;padding:14px;background:#62e6a5;color:#10131c;font-weight:bold;cursor:pointer}
+button:disabled{opacity:.5}
 .card{background:#1c2230;border-radius:18px;padding:20px;margin-bottom:18px}
 input{width:100%;padding:16px;background:#111722;border:1px solid #3b4558;color:white;border-radius:12px;margin:14px 0}
 .action{width:100%;margin-top:12px}
 .secondary{background:#30394b;color:white}
-video{width:100%;margin-top:14px;border-radius:12px;background:#000}
+#player{margin-top:14px}
+video,iframe{width:100%;border:0;border-radius:12px;background:#000}
+video{aspect-ratio:16/9}
+iframe{aspect-ratio:9/16;max-height:520px}
 #status{display:none;margin-top:14px;padding:13px;background:#283548;border-radius:10px;overflow-wrap:anywhere}
 .history{padding:12px 0;border-bottom:1px solid #394052;overflow-wrap:anywhere}
 .history button{margin-top:8px}
@@ -34,8 +38,8 @@ footer{text-align:center;color:#8892a3;font-size:12px;padding:20px}
 
 <div class="card">
 <h2>Video Downloader</h2>
-<p>Paste your video URL below.</p>
-<input id="url" type="url" placeholder="https://example.com/video.mp4">
+<p>YouTube, Facebook, TikTok and direct video links.</p>
+<input id="url" type="url" placeholder="Paste video link here">
 
 <button class="action" id="preview">▶ Preview Video</button>
 <button class="action" id="open">↗ Open Link</button>
@@ -57,27 +61,51 @@ footer{text-align:center;color:#8892a3;font-size:12px;padding:20px}
 
 const $ = id => document.getElementById(id)
 
-function show(text) {
+function show(message) {
  $('status').style.display = 'block'
- $('status').textContent = text
+ $('status').textContent = message
 }
 
 function validUrl() {
  try {
   const u = new URL($('url').value.trim())
-  if (!['http:','https:'].includes(u.protocol)) return null
-  return u
+  return ['http:','https:'].includes(u.protocol) ? u : null
  } catch {
   return null
  }
 }
 
-function youtube(u) {
- return /(^|\.)youtube\.com$|(^|\.)youtu\.be$/i.test(u.hostname)
+function platform(u) {
+ const h = u.hostname.toLowerCase()
+
+ if (/(^|\.)youtube\.com$|(^|\.)youtu\.be$/.test(h)) return 'youtube'
+ if (/(^|\.)facebook\.com$|(^|\.)fb\.watch$/.test(h)) return 'facebook'
+ if (/(^|\.)tiktok\.com$/.test(h)) return 'tiktok'
+ if (/(^|\.)instagram\.com$/.test(h)) return 'instagram'
+
+ return 'other'
+}
+
+function youtubeId(u) {
+ if (u.hostname.includes('youtu.be')) {
+  return u.pathname.split('/').filter(Boolean)[0] || ''
+ }
+
+ if (u.pathname === '/watch') return u.searchParams.get('v') || ''
+
+ const parts = u.pathname.split('/').filter(Boolean)
+ if (['shorts','embed','live'].includes(parts[0])) return parts[1] || ''
+
+ return ''
 }
 
 function history() {
- let items = JSON.parse(localStorage.getItem('vb_history') || '[]')
+ let items = []
+
+ try {
+  items = JSON.parse(localStorage.getItem('vb_history') || '[]')
+ } catch {}
+
  $('history').innerHTML = ''
 
  if (!items.length) {
@@ -109,13 +137,15 @@ function history() {
 }
 
 function saveHistory(url,name) {
- let items = JSON.parse(localStorage.getItem('vb_history') || '[]')
+ let items = []
+
+ try {
+  items = JSON.parse(localStorage.getItem('vb_history') || '[]')
+ } catch {}
+
  items = items.filter(x => x.url !== url)
- items.unshift({
-  url,
-  name,
-  date:new Date().toLocaleString()
- })
+ items.unshift({url,name,date:new Date().toLocaleString()})
+
  localStorage.setItem('vb_history',JSON.stringify(items.slice(0,30)))
  history()
 }
@@ -127,7 +157,7 @@ async function openLink() {
  try {
   await Browser.open({url:u.href})
  } catch(e) {
-  show('Cannot open link: '+e.message)
+  show('Cannot open link: ' + (e.message || e))
  }
 }
 
@@ -135,29 +165,105 @@ function preview() {
  const u = validUrl()
  if (!u) return show('Please enter a valid URL.')
 
- $('player').innerHTML = ''
+ const p = platform(u)
+ const player = $('player')
+ player.innerHTML = ''
 
- if (youtube(u)) {
-  show('YouTube link detected. Open it in YouTube.')
-  return openLink()
+ if (p === 'youtube') {
+  const id = youtubeId(u)
+
+  if (!id) {
+   show('YouTube video link could not be identified. Open the link instead.')
+   return
+  }
+
+  const frame = document.createElement('iframe')
+  frame.src = 'https://www.youtube-nocookie.com/embed/' + encodeURIComponent(id)
+  frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share'
+  frame.allowFullscreen = true
+  player.append(frame)
+  show('YouTube official player.')
+  return
  }
 
- const v = document.createElement('video')
- v.controls = true
- v.playsInline = true
- v.preload = 'metadata'
- v.src = u.href
- v.onerror = () => show('Preview unavailable. This link may not be a direct video.')
- $('player').append(v)
- show('Preview loading...')
+ if (p === 'facebook') {
+  const frame = document.createElement('iframe')
+  frame.src = 'https://www.facebook.com/plugins/video.php?href=' +
+   encodeURIComponent(u.href) + '&show_text=false'
+  frame.allow = 'autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share'
+  frame.allowFullscreen = true
+  player.append(frame)
+  show('Facebook official video player. Private videos may not display.')
+  return
+ }
+
+ if (p === 'tiktok') {
+  const match = u.pathname.match(/\/video\/(\d+)/)
+
+  if (!match) {
+   show('TikTok video ID not found. Open this link in TikTok.')
+   return
+  }
+
+  const frame = document.createElement('iframe')
+  frame.src = 'https://www.tiktok.com/player/v1/' + match[1] +
+   '?music_info=1&description=1'
+  frame.allow = 'autoplay; encrypted-media; picture-in-picture'
+  frame.allowFullscreen = true
+  player.append(frame)
+  show('TikTok official player.')
+  return
+ }
+
+ if (p === 'instagram') {
+  const match = u.pathname.match(/\/(p|reel|tv)\/([^/]+)/)
+
+  if (match) {
+   const frame = document.createElement('iframe')
+   frame.src = 'https://www.instagram.com/' + match[1] + '/' +
+    encodeURIComponent(match[2]) + '/embed'
+   frame.allowFullscreen = true
+   player.append(frame)
+   show('Instagram official embed. Private posts may not display.')
+   return
+  }
+
+  show('Open this Instagram link in Instagram.')
+  return
+ }
+
+ if (/\.(mp4|webm|m4v|mov)$/i.test(u.pathname)) {
+  const v = document.createElement('video')
+  v.controls = true
+  v.playsInline = true
+  v.preload = 'metadata'
+  v.src = u.href
+  v.onerror = () => show('Video preview unavailable.')
+  player.append(v)
+  show('Direct video link detected.')
+  return
+ }
+
+ show('This is a webpage link, not a direct video file. Open the link to watch.')
 }
 
 async function download() {
  const u = validUrl()
  if (!u) return show('Please enter a valid URL.')
 
- if (youtube(u)) {
-  return show('Use YouTube official download options where available.')
+ const p = platform(u)
+
+ if (p !== 'other') {
+  return show(
+   'This platform does not provide a direct video file through this link. ' +
+   'Use the platform official download option where available, or download a video you own.'
+  )
+ }
+
+ const ext = u.pathname.match(/\.(mp4|webm|m4v|mov)$/i)
+
+ if (!ext) {
+  return show('Direct MP4, WebM, M4V or MOV video file link required.')
  }
 
  const btn = $('download')
@@ -165,24 +271,21 @@ async function download() {
  btn.textContent = 'Starting download...'
 
  try {
-  const path = u.pathname.split('/').pop()
-  const name = path && /\.[a-z0-9]{2,5}$/i.test(path)
-   ? decodeURIComponent(path)
-   : 'VidBear_' + Date.now() + '.mp4'
+  let name = decodeURIComponent(u.pathname.split('/').pop() || '')
+  name = name.replace(/[^a-zA-Z0-9._-]/g,'_')
+
+  if (!name) name = 'VidBear_' + Date.now() + '.mp4'
 
   const result = await NativeDownloader.download({
    url:u.href,
    fileName:name
   })
 
-  saveHistory(u.href,result.fileName)
+  saveHistory(u.href,result.fileName || name)
 
-  show(
-   'Download started! Check your notification. Save location: Movies/VidBear/'
-   + result.fileName
-  )
+  show('Download started. Check notification. Folder: Movies/VidBear/')
  } catch(e) {
-  show('Download error: '+(e.message || String(e)))
+  show('Download error: ' + (e.message || String(e)))
  } finally {
   btn.disabled = false
   btn.textContent = '⬇ Download Video'

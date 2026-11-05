@@ -6,70 +6,106 @@ import { Browser } from '@capacitor/browser'
 const NativeDownloader = registerPlugin('NativeDownloader')
 const app = document.querySelector('#app')
 const API = 'https://vidbear.onrender.com'
+.	
+ 
 
 app.innerHTML = `
-<style>
-*{box-sizing:border-box}
-body{margin:0;background:#10131c;color:white;font-family:Arial,sans-serif}
-.vb{max-width:500px;margin:auto;padding:20px 16px}
-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:28px}
-.logo{font-size:28px;font-weight:900;color:#62e6a5}
-.logo span{color:white}
-button{border:0;border-radius:12px;padding:14px;background:#62e6a5;color:#10131c;font-weight:bold;cursor:pointer}
-button:disabled{opacity:.5}
-.card{background:#1c2230;border-radius:18px;padding:20px;margin-bottom:18px}
-input{width:100%;padding:16px;background:#111722;border:1px solid #3b4558;color:white;border-radius:12px;margin:14px 0}
-.action{width:100%;margin-top:12px}
-.secondary{background:#30394b;color:white}
-.youtube-btn{background:#ff0033;color:white}
-#player{margin-top:14px}
-video,iframe{width:100%;border:0;border-radius:12px;background:#000}
-video{aspect-ratio:16/9}
-iframe{aspect-ratio:16/9;max-height:520px}
-#status{display:none;margin-top:14px;padding:13px;background:#283548;border-radius:10px;overflow-wrap:anywhere}
-.history{padding:12px 0;border-bottom:1px solid #394052;overflow-wrap:anywhere}
-.history button{margin-top:8px}
-p{color:#b1bbca;line-height:1.5}
-footer{text-align:center;color:#8892a3;font-size:12px;padding:20px}
-.file-label{display:block;background:#111722;padding:16px;border:1px dashed #62e6a5;border-radius:12px;margin-top:14px}
-</style>
-
 <div class="vb">
 <header>
-<button class="secondary" id="back">← Back</button>
 <div class="logo">Vid<span>Bear</span> 🐻</div>
+<div class="top-search">
+<input id="ytSearch" placeholder="Search videos..." type="search">
+<button id="ytSearchBtn">⌕</button>
+</div>
 </header>
 
-<div class="card">
-<h2>🔴 YouTube Search</h2>
-<p>Search videos directly on YouTube.</p>
-<input id="ytSearch" type="search" placeholder="Search YouTube videos...">
-<button class="action youtube-btn" id="ytSearchBtn">▶ Search YouTube</button>
-<button class="action secondary" id="ytOpen">Open YouTube</button>
+<div class="tabs">
+<button class="active" data-query="trending videos">FEATURED</button>
+<button data-query="movies trailers">MOVIE</button>
+<button data-query="music videos">MUSIC</button>
+<button data-query="web series">WEB SERIES</button>
+<button data-query="sports videos">SPORTS</button>
 </div>
 
-<div class="card">
-<h2>Video Downloader</h2>
-<p>YouTube, Facebook, TikTok and direct video links.</p>
+<div class="socials">
+<button class="yt" id="ytQuick">▶</button>
+<button class="fb" id="fbQuick">f</button>
+<button class="wa" id="waQuick">◉</button>
+<button class="ig" id="igQuick">◎</button>
+<button class="more" id="moreQuick">•••</button>
+</div>
+
+<h2 class="section-title">Featured Videos</h2>
+
+<div class="feed-card">
+<div class="thumb" id="feedOne">
+<span>▶</span>
+<div class="play">▶</div>
+<div class="thumb-label">FEATURED VIDEO</div>
+</div>
+<div class="feed-info">
+<strong>Trending YouTube Videos</strong>
+<div class="feed-actions">
+<span>Explore popular videos</span>
+<button class="feedSearch" data-query="trending YouTube videos">↗</button>
+</div>
+</div>
+</div>
+
+<div class="feed-card">
+<div class="thumb two">
+<span>🎬</span>
+<div class="play">▶</div>
+<div class="thumb-label">MOVIES</div>
+</div>
+<div class="feed-info">
+<strong>Latest Movie Trailers</strong>
+<div class="feed-actions">
+<span>Explore movie videos</span>
+<button class="feedSearch" data-query="latest movie trailers">↗</button>
+</div>
+</div>
+</div>
+
+<div class="feed-card">
+<div class="thumb three">
+<span>🎵</span>
+<div class="play">▶</div>
+<div class="thumb-label">MUSIC</div>
+</div>
+<div class="feed-info">
+<strong>Popular Music Videos</strong>
+<div class="feed-actions">
+<span>Explore music videos</span>
+<button class="feedSearch" data-query="popular music videos">↗</button>
+</div>
+</div>
+</div>
+
+<div class="card" id="downloader">
+<h2>⬇ Video Downloader</h2>
+<p>Paste a direct video link or supported platform link.</p>
 <input id="url" type="url" placeholder="Paste video link here">
 <button class="action" id="preview">▶ Preview Video</button>
-<button class="action" id="open">↗ Open Link</button>
+<button class="action secondary" id="open">↗ Open Link</button>
 <button class="action" id="download">⬇ Download Video</button>
 <div id="status"></div>
 <div id="player"></div>
 </div>
 
-<div class="card">
+<div class="card" id="converter">
 <h2>🎵 MP3 Converter</h2>
 <p>Select your own video or a video you have permission to convert.</p>
 <label class="file-label">
 Choose Video File
 <input id="videoFile" type="file" accept="video/*">
+
+
 </label>
 <button class="action" id="convert">Convert to MP3</button>
 </div>
 
-<div class="card">
+<div class="card" id="historySection">
 <h2>Download History</h2>
 <div id="history"></div>
 <button class="action secondary" id="clear">Clear History</button>
@@ -77,6 +113,12 @@ Choose Video File
 
 <footer>VidBear • Video Downloader</footer>
 </div>
+
+<nav class="bottom-nav">
+<button class="active" id="homeNav"><span>⌂</span>HOME</button>
+<button id="trendingNav"><span>▷</span>TRENDING</button>
+<button id="meNav"><span>♙</span>ME</button>
+</nav>
 `
 
 const $ = id => document.getElementById(id)
@@ -346,6 +388,42 @@ $('clear').onclick = () => {
  localStorage.removeItem('vb_history')
  history()
  show('History cleared.')
+}
+
+$('ytSearchBtn').onclick = youtubeSearch
+$('ytSearch').addEventListener('keydown', e => {
+ if (e.key === 'Enter') youtubeSearch()
+})
+
+$('ytQuick').onclick = () => Browser.open({url:'https://www.youtube.com'})
+$('fbQuick').onclick = () => Browser.open({url:'https://www.facebook.com'})
+$('waQuick').onclick = () => Browser.open({url:'https://www.whatsapp.com'})
+$('igQuick').onclick = () => Browser.open({url:'https://www.instagram.com'})
+$('moreQuick').onclick = () => {
+ document.getElementById('downloader').scrollIntoView({behavior:'smooth'})
+}
+
+document.querySelectorAll('[data-query]').forEach(btn => {
+ btn.onclick = () => {
+  $('ytSearch').value = btn.dataset.query
+  youtubeSearch()
+ }
+})
+
+document.querySelectorAll('.feedSearch').forEach(btn => {
+ btn.onclick = () => {
+  $('ytSearch').value = btn.dataset.query
+  youtubeSearch()
+ }
+})
+
+$('homeNav').onclick = () => window.scrollTo({top:0,behavior:'smooth'})
+$('trendingNav').onclick = () => {
+ $('ytSearch').value = 'trending videos'
+ youtubeSearch()
+}
+$('meNav').onclick = () => {
+ $('historySection').scrollIntoView({behavior:'smooth'})
 }
 
 history()

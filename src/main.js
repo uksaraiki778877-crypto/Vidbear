@@ -5,6 +5,8 @@ import { Browser } from '@capacitor/browser'
 const NativeDownloader = registerPlugin('NativeDownloader')
 const app = document.querySelector('#app')
 
+const API = 'http://127.0.0.1:3000'
+
 app.innerHTML = `
 <style>
 *{box-sizing:border-box}
@@ -28,6 +30,7 @@ iframe{aspect-ratio:16/9;max-height:520px}
 .history button{margin-top:8px}
 p{color:#b1bbca;line-height:1.5}
 footer{text-align:center;color:#8892a3;font-size:12px;padding:20px}
+.file-label{display:block;background:#111722;padding:16px;border:1px dashed #62e6a5;border-radius:12px;margin-top:14px}
 </style>
 
 <div class="vb">
@@ -47,6 +50,16 @@ footer{text-align:center;color:#8892a3;font-size:12px;padding:20px}
 
 <div id="status"></div>
 <div id="player"></div>
+</div>
+
+<div class="card">
+<h2>🎵 MP3 Converter</h2>
+<p>Select your own video or a video you have permission to convert.</p>
+<label class="file-label">
+Choose Video File
+<input id="videoFile" type="file" accept="video/*">
+</label>
+<button class="action" id="convert">Convert to MP3</button>
 </div>
 
 <div class="card">
@@ -77,12 +90,10 @@ function validUrl() {
 
 function platform(u) {
  const h = u.hostname.toLowerCase()
-
  if (/(^|\.)youtube\.com$|(^|\.)youtu\.be$/.test(h)) return 'youtube'
  if (/(^|\.)facebook\.com$|(^|\.)fb\.watch$/.test(h)) return 'facebook'
  if (/(^|\.)tiktok\.com$/.test(h)) return 'tiktok'
  if (/(^|\.)instagram\.com$/.test(h)) return 'instagram'
-
  return 'other'
 }
 
@@ -90,18 +101,14 @@ function youtubeId(u) {
  if (u.hostname.includes('youtu.be')) {
   return u.pathname.split('/').filter(Boolean)[0] || ''
  }
-
  if (u.pathname === '/watch') return u.searchParams.get('v') || ''
-
  const parts = u.pathname.split('/').filter(Boolean)
  if (['shorts','embed','live'].includes(parts[0])) return parts[1] || ''
-
  return ''
 }
 
 function history() {
  let items = []
-
  try {
   items = JSON.parse(localStorage.getItem('vb_history') || '[]')
  } catch {}
@@ -116,36 +123,21 @@ function history() {
  items.forEach(item => {
   const div = document.createElement('div')
   div.className = 'history'
-
   const title = document.createElement('div')
   title.textContent = item.name
-
   const date = document.createElement('p')
   date.textContent = item.date
-
-  const btn = document.createElement('button')
-  btn.className = 'secondary'
-  btn.textContent = 'Open link'
-  btn.onclick = () => {
-   $('url').value = item.url
-   openLink()
-  }
-
-  div.append(title,date,btn)
+  div.append(title,date)
   $('history').append(div)
  })
 }
 
 function saveHistory(url,name) {
  let items = []
-
  try {
   items = JSON.parse(localStorage.getItem('vb_history') || '[]')
  } catch {}
-
- items = items.filter(x => x.url !== url)
  items.unshift({url,name,date:new Date().toLocaleString()})
-
  localStorage.setItem('vb_history',JSON.stringify(items.slice(0,30)))
  history()
 }
@@ -153,7 +145,6 @@ function saveHistory(url,name) {
 async function openLink() {
  const u = validUrl()
  if (!u) return show('Please enter a valid URL.')
-
  try {
   await Browser.open({url:u.href})
  } catch(e) {
@@ -171,12 +162,7 @@ function preview() {
 
  if (p === 'youtube') {
   const id = youtubeId(u)
-
-  if (!id) {
-   show('YouTube video link could not be identified. Open the link instead.')
-   return
-  }
-
+  if (!id) return show('YouTube video link could not be identified.')
   const frame = document.createElement('iframe')
   frame.src = 'https://www.youtube.com/embed/' + encodeURIComponent(id) + '?playsinline=1&rel=0'
   frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share'
@@ -184,54 +170,37 @@ function preview() {
   frame.referrerPolicy = 'strict-origin-when-cross-origin'
   frame.title = 'YouTube Video Player'
   player.append(frame)
-  show('YouTube official player. Press play to watch.')
-  return
+  return show('YouTube official player. Press play to watch.')
  }
 
  if (p === 'facebook') {
   const frame = document.createElement('iframe')
-  frame.src = 'https://www.facebook.com/plugins/video.php?href=' +
-   encodeURIComponent(u.href) + '&show_text=false'
+  frame.src = 'https://www.facebook.com/plugins/video.php?href=' + encodeURIComponent(u.href) + '&show_text=false'
   frame.allow = 'autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share'
   frame.allowFullscreen = true
   player.append(frame)
-  show('Facebook official video player. Private videos may not display.')
-  return
+  return show('Facebook official video player.')
  }
 
  if (p === 'tiktok') {
   const match = u.pathname.match(/\/video\/(\d+)/)
-
-  if (!match) {
-   show('TikTok video ID not found. Open this link in TikTok.')
-   return
-  }
-
+  if (!match) return show('TikTok video ID not found.')
   const frame = document.createElement('iframe')
-  frame.src = 'https://www.tiktok.com/player/v1/' + match[1] +
-   '?music_info=1&description=1'
+  frame.src = 'https://www.tiktok.com/player/v1/' + match[1] + '?music_info=1&description=1'
   frame.allow = 'autoplay; encrypted-media; picture-in-picture'
   frame.allowFullscreen = true
   player.append(frame)
-  show('TikTok official player.')
-  return
+  return show('TikTok official player.')
  }
 
  if (p === 'instagram') {
   const match = u.pathname.match(/\/(p|reel|tv)\/([^/]+)/)
-
-  if (match) {
-   const frame = document.createElement('iframe')
-   frame.src = 'https://www.instagram.com/' + match[1] + '/' +
-    encodeURIComponent(match[2]) + '/embed'
-   frame.allowFullscreen = true
-   player.append(frame)
-   show('Instagram official embed. Private posts may not display.')
-   return
-  }
-
-  show('Open this Instagram link in Instagram.')
-  return
+  if (!match) return show('Open this Instagram link in Instagram.')
+  const frame = document.createElement('iframe')
+  frame.src = 'https://www.instagram.com/' + match[1] + '/' + encodeURIComponent(match[2]) + '/embed'
+  frame.allowFullscreen = true
+  player.append(frame)
+  return show('Instagram official embed.')
  }
 
  if (/\.(mp4|webm|m4v|mov)$/i.test(u.pathname)) {
@@ -242,61 +211,77 @@ function preview() {
   v.src = u.href
   v.onerror = () => show('Video preview unavailable.')
   player.append(v)
-  show('Direct video link detected.')
-  return
+  return show('Direct video link detected.')
  }
 
- show('This is a webpage link, not a direct video file. Open the link to watch.')
+ show('This is a webpage link, not a direct video file.')
 }
 
 async function download() {
  const u = validUrl()
  if (!u) return show('Please enter a valid URL.')
 
- const p = platform(u)
-
- if (p !== 'other') {
-  return show(
-   'This platform does not provide a direct video file through this link. ' +
-   'Use the platform official download option where available, or download a video you own.'
-  )
+ if (platform(u) !== 'other') {
+  return show('Use official platform download options, or download your own media.')
  }
 
- const ext = u.pathname.match(/\.(mp4|webm|m4v|mov)$/i)
-
- if (!ext) {
-  return show('Direct MP4, WebM, M4V or MOV video file link required.')
+ if (!/\.(mp4|webm|m4v|mov)$/i.test(u.pathname)) {
+  return show('Direct video file link required.')
  }
 
  const btn = $('download')
  btn.disabled = true
- btn.textContent = 'Starting download...'
-
  try {
   let name = decodeURIComponent(u.pathname.split('/').pop() || '')
   name = name.replace(/[^a-zA-Z0-9._-]/g,'_')
-
   if (!name) name = 'VidBear_' + Date.now() + '.mp4'
-
-  const result = await NativeDownloader.download({
-   url:u.href,
-   fileName:name
-  })
-
+  const result = await NativeDownloader.download({url:u.href,fileName:name})
   saveHistory(u.href,result.fileName || name)
-
   show('Download started. Check notification. Folder: Movies/VidBear/')
  } catch(e) {
   show('Download error: ' + (e.message || String(e)))
  } finally {
   btn.disabled = false
-  btn.textContent = '⬇ Download Video'
+ }
+}
+
+async function convertMP3() {
+ const file = $('videoFile').files[0]
+ if (!file) return show('Please choose a video file first.')
+
+ const btn = $('convert')
+ btn.disabled = true
+ btn.textContent = 'Converting...'
+ show('Uploading video. Please wait...')
+
+ try {
+  const form = new FormData()
+  form.append('video',file)
+
+  const response = await fetch(API + '/api/convert-mp3',{
+   method:'POST',
+   body:form
+  })
+
+  const result = await response.json()
+  if (!response.ok) throw new Error(result.error || 'Conversion failed')
+
+  saveHistory(result.filename,result.filename)
+  show('MP3 converted successfully: ' + result.filename +
+   '. Saved in Music/VidBear on the phone running the backend.')
+ } catch(e) {
+  show('MP3 Error: ' + (e.message || String(e)) +
+   '. Check that the backend is running.')
+ } finally {
+  btn.disabled = false
+  btn.textContent = 'Convert to MP3'
  }
 }
 
 $('preview').onclick = preview
 $('open').onclick = openLink
 $('download').onclick = download
+$('convert').onclick = convertMP3
 
 $('back').onclick = () => {
  $('url').value = ''

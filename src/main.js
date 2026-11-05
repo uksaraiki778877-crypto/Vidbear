@@ -22,7 +22,7 @@ input{width:100%;padding:16px;background:#111722;border:1px solid #3b4558;color:
 #player{margin-top:14px}
 video,iframe{width:100%;border:0;border-radius:12px;background:#000}
 video{aspect-ratio:16/9}
-iframe{aspect-ratio:9/16;max-height:520px}
+iframe{aspect-ratio:16/9;max-height:520px}
 #status{display:none;margin-top:14px;padding:13px;background:#283548;border-radius:10px;overflow-wrap:anywhere}
 .history{padding:12px 0;border-bottom:1px solid #394052;overflow-wrap:anywhere}
 .history button{margin-top:8px}
@@ -178,11 +178,13 @@ function preview() {
   }
 
   const frame = document.createElement('iframe')
-  frame.src = 'https://www.youtube-nocookie.com/embed/' + encodeURIComponent(id)
+  frame.src = 'https://www.youtube.com/embed/' + encodeURIComponent(id) + '?playsinline=1&rel=0'
   frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share'
   frame.allowFullscreen = true
+  frame.referrerPolicy = 'strict-origin-when-cross-origin'
+  frame.title = 'YouTube Video Player'
   player.append(frame)
-  show('YouTube official player.')
+  show('YouTube official player. Press play to watch.')
   return
  }
 

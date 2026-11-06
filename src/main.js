@@ -370,19 +370,12 @@ $('ytSearchBtn').onclick = youtubeSearch
 $('ytSearch').addEventListener('keydown', e => {
  if (e.key === 'Enter') youtubeSearch()
 })
-$('ytOpen').onclick = () => Browser.open({url:'https://www.youtube.com'}).catch(e => show(e.message || e))
 
 $('preview').onclick = preview
 $('open').onclick = openLink
 $('download').onclick = download
 $('convert').onclick = convertMP3
 
-$('back').onclick = () => {
- $('url').value = ''
- $('player').innerHTML = ''
- $('status').style.display = 'none'
- window.scrollTo({top:0,behavior:'smooth'})
-}
 
 $('clear').onclick = () => {
  localStorage.removeItem('vb_history')
